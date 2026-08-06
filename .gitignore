@@ -1,0 +1,12 @@
+data/
+*.parquet
+*.jsonl
+metrics_*.csv
+predictions_*.parquet
+batch_state_*.json
+tables/
+__pycache__/
+*.pyc
+.venv/
+.env
+*.key

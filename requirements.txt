@@ -1,0 +1,16 @@
+pandas
+pyarrow
+scikit-learn
+numpy
+krippendorff
+tqdm
+
+# model runners
+torch
+transformers>=4.44
+sentence-transformers
+setfit
+accelerate
+vllm            # open-model zero-shot; optional if you only run the closed models
+openai          # closed-model zero-shot via the Batch API
+huggingface-hub # dataset download
