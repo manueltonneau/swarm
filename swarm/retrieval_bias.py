@@ -23,19 +23,26 @@ Outputs: a printed comparison table + the top failing domains, and
   data/predictions/eval_9lang/retrieval_bias.csv
 """
 import sys
+import os
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "code"))
-from build_domain_blocklist import reg_domain  # noqa: E402  (shared normalisation)
+try:
+    from .build_domain_blocklist import reg_domain
+except ImportError:  # noqa: E402
+    from build_domain_blocklist import reg_domain
 
+AUX = ROOT / "data_aux"
+EVAL = Path(os.environ.get("SWARM_EVAL_DIR", ROOT / "data" / "eval"))
+# Not in the public release: the sampled URLs that never reached annotation.
 FAILURES = ROOT / "data" / "annotation" / "sampled_not_annotated_recovery.csv"
-GOLD = ROOT / "data" / "predictions" / "eval_9lang" / "gold_eval_set.parquet"
-DOMAINS = ROOT / "data" / "categorized_domains" / "dataset_domain_categories.csv"
-BUNDLE = ROOT / "data" / "propaganda_domains_bundle.csv"
-OUT = ROOT / "data" / "predictions" / "eval_9lang" / "retrieval_bias.csv"
+GOLD = EVAL / "gold_eval_set.parquet"
+DOMAINS = AUX / "domain_categories.csv"
+BUNDLE = AUX / "propaganda_domains_bundle.csv"
+OUT = EVAL / "retrieval_bias.csv"
 
 # extraction_status values that mean the page WAS retrieved cleanly (so the item
 # was dropped for another reason, e.g. annotators could not assess it) -- these
@@ -68,7 +75,16 @@ def markers(rd: pd.Series, block: set) -> dict:
     }
 
 
+def _require_failures():
+    if not FAILURES.exists():
+        raise SystemExit(
+            "This analysis needs the list of sampled URLs that never reached annotation, "
+            "which is not part of the public release (see README). "
+            f"Expected at {FAILURES}.")
+
+
 def main():
+    _require_failures()
     block = set(pd.read_csv(BUNDLE)["domain"].dropna().astype(str))
     fail, ret = failures(), retained()
     fm, rm = markers(fail["rd"], block), markers(ret["rd"], block)

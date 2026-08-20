@@ -12,6 +12,7 @@ Outputs: prints an ALL-row summary and a per-language table; writes
 data/predictions/eval_9lang/all_results_summary.csv and a LaTeX snippet.
 """
 import glob
+import os
 from pathlib import Path
 
 import numpy as np
@@ -23,8 +24,9 @@ from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
 ROOT = Path(__file__).resolve().parent.parent
 DIRS = [Path(os.environ.get("SWARM_EVAL_DIR", ROOT / "data" / "eval")),
         ROOT / "results"]
-GOLD = ROOT / "data" / "predictions" / "eval_9lang" / "gold_eval_set.parquet"
-OUTDIR = ROOT / "data" / "predictions" / "eval_9lang"
+EVAL = Path(os.environ.get("SWARM_EVAL_DIR", ROOT / "data" / "eval"))
+GOLD = EVAL / "gold_eval_set.parquet"
+OUTDIR = EVAL
 
 # pretty names for filename stems (after stripping predictions_/ _native)
 NAMES = {

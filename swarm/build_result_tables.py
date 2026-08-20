@@ -157,7 +157,10 @@ def main():
         "Positive-class F1 per language and overall, English input, on the 2{,}129-document labelled set, best per row in bold. "
         "\\emph{Domain} is the non-learned source-based blocklist, XLM-R, e5-LR, and SetFit are the supervised baselines, and the "
         "remaining columns are the zero-shot LLMs. \\emph{Best} is the highest F1 any method reaches for that language. Its "
-        "\\emph{All} entry is the \\emph{oracle}, the mean of these per-language ceilings.",
+        "\\emph{All} entry is the \\emph{oracle}, the mean of these per-language ceilings. "
+        "Per-language winners should be read with caution, since several languages carry few "
+        "positives (as few as 17 in Hindi, Table~\\ref{tab:perlang}) and the margins between the "
+        "leading methods are often within resampling noise.",
         "per_lang_posf1"))
     (args.out / "per_lang_balacc.tex").write_text(per_lang(
         "bal_acc", "Balanced accuracy",

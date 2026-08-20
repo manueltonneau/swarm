@@ -31,7 +31,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import metrics_table  # noqa: E402
+try:
+    from .common import metrics_table
+except ImportError:  # noqa: E402
+    from common import metrics_table
 
 HERE = Path(__file__).resolve().parent
 GOLD = HERE / "gold_eval_set.parquet"

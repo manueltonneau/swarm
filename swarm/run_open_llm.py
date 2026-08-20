@@ -25,7 +25,10 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import make_prompt, to_label, metrics_table  # noqa: E402
+try:
+    from .common import make_prompt, to_label, metrics_table
+except ImportError:  # noqa: E402
+    from common import make_prompt, to_label, metrics_table
 
 HERE = Path(__file__).resolve().parent
 GOLD = HERE / "gold_eval_set.parquet"
@@ -84,24 +87,39 @@ def tag_of(model: str) -> str:
     return re.sub(r"[^A-Za-z0-9.]+", "-", model.strip("/").split("/")[-1]).lower()
 
 
-def build_prompts(df, tokenizer):
+def _clip(tokenizer, text, max_doc_tokens):
+    """Truncate the document to max_doc_tokens of the model's own tokenizer.
+
+    Used for the matched-context comparison against the supervised encoders,
+    which see only the first 512 tokens of a document.
+    """
+    if not max_doc_tokens:
+        return text
+    ids = tokenizer(text, add_special_tokens=False)["input_ids"]
+    if len(ids) <= max_doc_tokens:
+        return text
+    return tokenizer.decode(ids[:max_doc_tokens], skip_special_tokens=True)
+
+
+def build_prompts(df, tokenizer, max_doc_tokens=0):
     """Apply the model's chat template to each (claim, document) prompt."""
     texts = []
     for r in df.itertuples():
-        msg = [{"role": "user", "content": make_prompt(str(r.question), str(r.art_trunc))}]
+        doc = _clip(tokenizer, str(r.art_trunc), max_doc_tokens)
+        msg = [{"role": "user", "content": make_prompt(str(r.question), doc)}]
         try:
             t = tokenizer.apply_chat_template(msg, tokenize=False, add_generation_prompt=True)
         except Exception:
-            t = make_prompt(str(r.question), str(r.art_trunc))  # no chat template
+            t = make_prompt(str(r.question), doc)  # no chat template
         texts.append(t)
     return texts
 
 
-def run_vllm(model, df, tp, max_len):
+def run_vllm(model, df, tp, max_len, max_doc_tokens=0):
     from vllm import LLM, SamplingParams
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(model)
-    prompts = build_prompts(df, tok)
+    prompts = build_prompts(df, tok, max_doc_tokens)
     kw = dict(model=model, tensor_parallel_size=tp, dtype="bfloat16",
               max_model_len=max_len, gpu_memory_utilization=0.90, trust_remote_code=True)
     # allow forcing a quantization kernel (e.g. VLLM_QUANT=awq to avoid the
@@ -146,6 +164,9 @@ def main():
     ap.add_argument("--backend", choices=["auto", "vllm", "hf"], default="auto")
     ap.add_argument("--tp", type=int, default=1, help="tensor-parallel GPUs (vLLM)")
     ap.add_argument("--max-len", type=int, default=8192)
+    ap.add_argument("--max-doc-tokens", type=int, default=0,
+                    help="truncate each document to N tokens of the model's own tokenizer "
+                         "(512 matches the supervised encoders); 0 disables")
     ap.add_argument("--eval", default=str(GOLD),
                     help="eval-set parquet (gold_eval_set.parquet [English] or "
                          "gold_eval_set_native.parquet [source language])")
@@ -180,11 +201,13 @@ def main():
           f"(reuse {int(known.sum())}, run {len(to_run)})", file=sys.stderr)
 
     if len(to_run):
-        raws_run = run_vllm(args.model, to_run, args.tp, args.max_len) if backend == "vllm" \
-            else run_hf(args.model, to_run, args.max_len)
+        raws_run = run_vllm(args.model, to_run, args.tp, args.max_len, args.max_doc_tokens) \
+            if backend == "vllm" else run_hf(args.model, to_run, args.max_len)
     else:
         raws_run = []
-    df["raw_pred"] = df["_hash"].map(reuse)
+    # object dtype up front: with no --reuse this column is all-NaN, and pandas
+    # refuses to write strings into a float block
+    df["raw_pred"] = df["_hash"].map(reuse).astype(object)
     df.loc[~known, "raw_pred"] = raws_run
     df = df.drop(columns="_hash")
     df["pred"] = df["raw_pred"].map(to_label)
