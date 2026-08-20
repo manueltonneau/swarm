@@ -30,7 +30,7 @@ numbers will not match the paper.
 
 Each command writes `metrics_<tag>.csv` and `predictions_<tag>.parquet`.
 
-**Source-based blocklist** (Table 8, first row; Table 9). The assembled blocklist ships in
+**Source-based blocklist** (Table 10, first row; Table 5). The assembled blocklist ships in
 `data_aux/propaganda_domains_bundle.csv` (2,962 registered domains merged from a scraped Wikipedia
 list of Russian disinformation sites, EUvsDisinfo, Proppy/MBFC and Rashkin et al.), so this baseline
 runs without rebuilding it:
@@ -70,12 +70,12 @@ items whose `content_hash` changed and reuse the rest.
 
 **Ablations reported in the appendices**
 
-Prompt ablation (Appendix J), which removes the "repeat the assessment nine times" sentence and
+Prompt ablation (Appendix I), which removes the "repeat the assessment nine times" sentence and
 changes nothing else:
 
     SWARM_NO_SELFCONSISTENCY=1 python -m swarm.run_open_llm --model Qwen/Qwen2.5-7B-Instruct --tp 1
 
-Matched-context comparison (Appendix K), which gives the LLMs the same 512-token budget as the
+Matched-context comparison (Appendix J), which gives the LLMs the same 512-token budget as the
 supervised encoders:
 
     python -m swarm.run_open_llm --model Qwen/Qwen2.5-7B-Instruct --tp 1 --max-doc-tokens 512
@@ -95,10 +95,13 @@ Both write to a distinct tag (`_nosc`, `_doc512`) so they do not overwrite the m
 | --- | --- |
 | Table 2 (per-language composition, alpha) | `final_stats.py` |
 | Table 4 (per-language positive-class F1) | `build_result_tables.py` |
-| Table 8 (overall results, all methods) | `merge_results.py` then `build_result_tables.py` |
-| Table 9 (blocklist recall by language) | `merge_results.py` |
-| Table 10 (per-language balanced accuracy) | `build_result_tables.py` |
-| Appendix H (retrieval selection bias) | `retrieval_bias.py` |
+| Table 10 (overall results, all methods) | `merge_results.py` then `build_result_tables.py` |
+| Table 5 (blocklist recall by language) | `blocklist_metrics.py` |
+| Table 6 (per-language balanced accuracy) | `build_result_tables.py` |
+| Table 11 (composition and support by source type) | `blocklist_metrics.py` |
+| Table 12, Appendix H (retrieval selection bias) | `retrieval_bias.py` |
+| Appendix I (prompt ablation) | `run_open_llm.py` with `SWARM_NO_SELFCONSISTENCY=1` |
+| Appendix J (matched context) | `run_open_llm.py --max-doc-tokens 512` |
 
 ## The zero-shot prompt
 
@@ -108,14 +111,14 @@ instruction-with-exemplar rather than a bare zero-shot prompt. It also asks the
 model to repeat the assessment nine times and take the majority, which cannot
 happen under greedy decoding with an eight-token output budget. Removing that
 sentence changes under 2% of predictions and moves F1 by less than 0.01 in
-either direction (Appendix I of the paper, reproducible with the command above). The prompt was fixed in
+either direction (Appendix I of the paper, reproducible with the command below). The prompt was fixed in
 advance and never tuned on the reported items.
 
 ## What reproduces, and what does not
 
 Runs end to end from the released dataset: the gold-set preparation, all three supervised baselines,
 all four zero-shot models, both appendix ablations, the source-based blocklist, the aggregation and the
-result tables. Verified: `build_result_tables.py` reproduces the paper's Table 4 and Table 8 byte for byte.
+result tables. Verified: `build_result_tables.py` reproduces the paper's Tables 4, 6 and 10 byte for byte.
 
 Three analyses cannot be reproduced from the public release, because they depend on inputs that are not
 released:
@@ -147,6 +150,16 @@ released:
   gold label, so the reported metrics are unaffected.
 - Reproducing the paper exactly means running the English-input variant. The
   released `text_native` for English items is the English text, by construction.
+
+## Licence
+
+The code in this repository is released under the MIT licence (see `LICENSE`).
+The auxiliary domain lists under `data_aux/` are derived from public sources and are
+redistributed for replication.
+
+The **dataset is licensed separately** and is not covered by the MIT licence: SWARM is
+distributed under gated, research-use-only access on the Hugging Face Hub, with its own
+terms and a takedown procedure.
 
 ## Citation
 
